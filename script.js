@@ -27,7 +27,7 @@ function getTodayStr() {
 function dateToHue(dateStr) {
   const [y, m, d] = dateStr.split("-").map(Number);
   const dayCount = y * 365 + m * 30 + d;
-  return (((dayCount * 137.508) % 360) + 360) % 360;
+  return Math.round((((dayCount * 137.508) % 360) + 360) % 360);
 }
 
 function dateToColor(dateStr) {
@@ -36,6 +36,7 @@ function dateToColor(dateStr) {
 }
 
 let stones = [];
+let particles = [];
 let nextId = 0;
 
 class Stone {
@@ -48,6 +49,44 @@ class Stone {
     this.vx = 0;
     this.vy = 0;
     this.settled = false;
+  }
+}
+
+class Particle {
+  constructor(x, y, color) {
+    this.x = x;
+    this.y = y;
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 1.5 + Math.random() * 5;
+    this.vx = Math.cos(angle) * speed;
+    this.vy = Math.sin(angle) * speed - 2;
+    this.r = 2 + Math.random() * 3.5;
+    this.alpha = 1;
+    this.decay = 0.015 + Math.random() * 0.025;
+    const parts = color.match(/hsl\(([\d.]+),\s*(\d+)%,\s*(\d+)%\)/);
+    if (parts) {
+      const h = Math.round(parseFloat(parts[1]));
+      const s = parseInt(parts[2]);
+      const l = parseInt(parts[3]);
+      const nl = Math.max(15, Math.min(85, l + (Math.random() - 0.5) * 40));
+      this.color = `hsl(${h + (Math.random() - 0.5) * 20}, ${s}%, ${nl}%)`;
+    } else {
+      this.color = color;
+    }
+  }
+
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+    this.vy += 0.15;
+    this.vx *= 0.97;
+    this.vy *= 0.97;
+    this.alpha -= this.decay;
+    this.r *= 0.99;
+  }
+
+  get dead() {
+    return this.alpha <= 0 || this.r < 0.3;
   }
 }
 
@@ -165,6 +204,9 @@ function updatePhysics() {
       saveState();
     }
   }
+
+  for (const p of particles) p.update();
+  particles = particles.filter(p => !p.dead);
 }
 
 function addStone(clickX) {
@@ -188,9 +230,23 @@ function addStone(clickX) {
 
 function removeStone() {
   if (stones.length === 0) return;
-  stones.pop();
-  saveState();
-  updateUI();
+  for (let i = stones.length - 1; i >= 0; i--) {
+    const s = stones[i];
+    if (s.settled) {
+      explodeStone(s);
+      stones.splice(i, 1);
+      saveState();
+      updateUI();
+      return;
+    }
+  }
+}
+
+function explodeStone(s) {
+  const count = 22 + Math.floor(Math.random() * 16);
+  for (let i = 0; i < count; i++) {
+    particles.push(new Particle(s.x, s.y, s.color));
+  }
 }
 
 function getSyncStorage() {
@@ -239,7 +295,7 @@ async function loadState() {
     const data = JSON.parse(raw);
     for (const d of data) {
       const s = Array.isArray(d)
-        ? new Stone(d[3], d[2], d[4], d[1], d[0])
+        ? new Stone(d[2], d[3], d[4], d[1], d[0])
         : new Stone(d.x, d.y, d.r, d.color, d.date);
       s.settled = true;
       stones.push(s);
@@ -322,6 +378,15 @@ function draw() {
   ctx.clearRect(0, 0, W, H);
   drawJar();
   for (const s of stones) drawStone(s);
+  for (const p of particles) {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, p.alpha);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, Math.max(0.3, p.r), 0, Math.PI * 2);
+    ctx.fillStyle = p.color;
+    ctx.fill();
+    ctx.restore();
+  }
   updateUI();
 }
 
