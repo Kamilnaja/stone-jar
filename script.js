@@ -1,0 +1,316 @@
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width;
+const H = canvas.height;
+
+const JAR = {
+  x: 55,
+  y: 55,
+  w: 370,
+  h: 535,
+  wall: 5,
+};
+
+const GRAVITY = 0.45;
+const BOUNCE = 0.2;
+const FRICTION = 0.97;
+const SUBS = 6;
+const MAX_STONES = 300;
+
+const STORAGE_KEY = 'stonejar_data';
+
+function getTodayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function dateToHue(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dayCount = y * 365 + m * 30 + d;
+  return ((dayCount * 137.508) % 360 + 360) % 360;
+}
+
+function dateToColor(dateStr) {
+  const h = dateToHue(dateStr);
+  return `hsl(${h}, 78%, 58%)`;
+}
+
+let stones = [];
+let nextId = 0;
+
+class Stone {
+  constructor(x, y, r, color, date) {
+    this.x = x;
+    this.y = y;
+    this.r = r;
+    this.color = color;
+    this.date = date;
+    this.vx = 0;
+    this.vy = 0;
+    this.settled = false;
+  }
+}
+
+function getBodyBounds(r) {
+  return {
+    left: JAR.x + JAR.wall + r + 2,
+    right: JAR.x + JAR.w - JAR.wall - r - 2,
+    bottom: JAR.y + JAR.h - JAR.wall - r - 1,
+  };
+}
+
+function isSupported(s) {
+  if (s.y + s.r >= JAR.y + JAR.h - JAR.wall - 2) return true;
+  for (const other of stones) {
+    if (other === s || !other.settled) continue;
+    const dx = s.x - other.x;
+    const dy = s.y - other.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist <= s.r + other.r + 0.5 && dy < 0) return true;
+  }
+  return false;
+}
+
+function resolveCollisions() {
+  for (let iter = 0; iter < SUBS; iter++) {
+    for (let i = 0; i < stones.length; i++) {
+      for (let j = i + 1; j < stones.length; j++) {
+        const a = stones[i], b = stones[j];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const minDist = a.r + b.r;
+
+        if (dist < minDist && dist > 0.001) {
+          const overlap = minDist - dist;
+          const nx = dx / dist;
+          const ny = dy / dist;
+
+          if (!a.settled && b.settled) {
+            a.x -= nx * overlap;
+            a.y -= ny * overlap;
+          } else if (a.settled && !b.settled) {
+            b.x += nx * overlap;
+            b.y += ny * overlap;
+          } else if (!a.settled && !b.settled) {
+            a.x -= nx * overlap * 0.5;
+            a.y -= ny * overlap * 0.5;
+            b.x += nx * overlap * 0.5;
+            b.y += ny * overlap * 0.5;
+          }
+
+          if (!a.settled || !b.settled) {
+            const rvx = a.vx - b.vx;
+            const rvy = a.vy - b.vy;
+            const rvn = rvx * nx + rvy * ny;
+            if (rvn > 0) {
+              const bounce = rvn < 0.8 ? 0 : BOUNCE;
+              const imp = rvn * (1 + bounce) * 0.5;
+              if (!a.settled) { a.vx -= imp * nx; a.vy -= imp * ny; }
+              if (!b.settled) { b.vx += imp * nx; b.vy += imp * ny; }
+            }
+          }
+        }
+      }
+    }
+
+    for (const s of stones) {
+      if (s.settled) continue;
+      const b = getBodyBounds(s.r);
+      if (s.x < b.left) { s.x = b.left; s.vx = Math.abs(s.vx) * 0.1; }
+      if (s.x > b.right) { s.x = b.right; s.vx = -Math.abs(s.vx) * 0.1; }
+      if (s.y + s.r > JAR.y + JAR.h - JAR.wall - 1) {
+        s.y = JAR.y + JAR.h - JAR.wall - 1 - s.r;
+        s.vy = Math.abs(s.vy) > 1 ? -s.vy * BOUNCE : 0;
+      }
+      if (s.y - s.r < JAR.y + 2) {
+        s.y = JAR.y + 2 + s.r;
+        s.vy = 0;
+      }
+    }
+  }
+}
+
+function updatePhysics() {
+  for (const s of stones) {
+    if (s.settled) continue;
+    s.vy += GRAVITY;
+    s.vx *= FRICTION;
+    s.vy *= FRICTION;
+    s.x += s.vx;
+    s.y += s.vy;
+  }
+
+  resolveCollisions();
+
+  for (const s of stones) {
+    if (s.settled) continue;
+    if (Math.abs(s.vy) < 0.4 && Math.abs(s.vx) < 0.3 && isSupported(s)) {
+      s.settled = true;
+      s.vx = 0;
+      s.vy = 0;
+      saveState();
+    }
+  }
+}
+
+function addStone(clickX) {
+  if (stones.length >= MAX_STONES) return;
+  const today = getTodayStr();
+  const color = dateToColor(today);
+  const r = 9 + Math.random() * 4;
+  let x;
+  if (clickX != null) {
+    const bounds = getBodyBounds(r);
+    x = Math.max(bounds.left, Math.min(bounds.right, clickX));
+  } else {
+    const cx = JAR.x + JAR.w / 2;
+    x = cx + (Math.random() - 0.5) * (JAR.w * 0.35);
+  }
+  const y = JAR.y - r;
+  const stone = new Stone(x, y, r, color, today);
+  stones.push(stone);
+  updateUI();
+}
+
+function removeStone() {
+  if (stones.length === 0) return;
+  stones.pop();
+  saveState();
+  updateUI();
+}
+
+function saveState() {
+  try {
+    const data = stones.filter(s => s.settled).map(s => ({
+      date: s.date,
+      color: s.color,
+      x: s.x,
+      y: s.y,
+      r: s.r,
+    }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (e) {}
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    for (const d of data) {
+      const s = new Stone(d.x, d.y, d.r, d.color, d.date);
+      s.settled = true;
+      stones.push(s);
+    }
+  } catch (e) {}
+}
+
+function drawJar() {
+  const { x, y, w, h, wall } = JAR;
+  const r = 12;
+
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.25)';
+  ctx.shadowBlur = 30;
+  ctx.shadowOffsetY = 8;
+  ctx.beginPath();
+  ctx.roundRect(x + 20, y + h - 8, w - 40, 16, 8);
+  ctx.fillStyle = 'rgba(0,0,0,0.15)';
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, r);
+  const grad = ctx.createLinearGradient(x, y, x + w, y);
+  grad.addColorStop(0, 'rgba(180, 220, 255, 0.06)');
+  grad.addColorStop(0.5, 'rgba(200, 235, 255, 0.10)');
+  grad.addColorStop(1, 'rgba(180, 220, 255, 0.04)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(200, 230, 255, 0.2)';
+  ctx.lineWidth = wall;
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(x + wall + 8, y + 12, w * 0.08, h - 24, 4);
+  ctx.fillStyle = 'rgba(255,255,255,0.04)';
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawStone(s) {
+  const { x, y, r, color } = s;
+  ctx.save();
+
+  const grad = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r);
+  grad.addColorStop(0, 'rgba(255,255,255,0.25)');
+  grad.addColorStop(0.3, color);
+  grad.addColorStop(1, 'rgba(0,0,0,0.3)');
+
+  ctx.shadowColor = 'rgba(0,0,0,0.25)';
+  ctx.shadowBlur = 6;
+  ctx.shadowOffsetY = 2;
+
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.beginPath();
+  ctx.arc(x - r * 0.25, y - r * 0.25, r * 0.35, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  drawJar();
+  for (const s of stones) drawStone(s);
+  updateUI();
+}
+
+function updateUI() {
+  const today = getTodayStr();
+  const colorStr = dateToColor(today);
+  document.getElementById('todaySwatch').style.background = colorStr;
+  document.getElementById('todayLabel').textContent = colorStr;
+  const total = stones.length;
+  const settled = stones.filter(s => s.settled).length;
+  document.getElementById('stoneCount').textContent =
+    `${total} stone${total !== 1 ? 's' : ''}${total > settled ? ' (settling...)' : ''}`;
+}
+
+function loop() {
+  updatePhysics();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+document.getElementById('addBtn').addEventListener('click', () => addStone());
+document.getElementById('removeBtn').addEventListener('click', removeStone);
+
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  if (mx >= JAR.x && mx <= JAR.x + JAR.w && my >= JAR.y && my <= JAR.y + JAR.h) {
+    addStone(mx);
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'a' || e.key === 'A') addStone();
+  if (e.key === 'r' || e.key === 'R') removeStone();
+});
+
+loadState();
+updateUI();
+loop();
