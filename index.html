@@ -8,14 +8,16 @@
 </head>
 <body>
 <div id="app">
-  <canvas id="canvas" width="480" height="640"></canvas>
-  <div id="controls">
-    <button id="addBtn">+ Add Stone</button>
-    <button id="removeBtn">- Remove Stone</button>
-  </div>
-  <div id="info">
-    <span>Today: <span class="swatch" id="todaySwatch"></span><span id="todayLabel">—</span></span>
-    <span id="stoneCount">0 stones</span>
+  <div id="canvas-wrap">
+    <canvas id="canvas" width="480" height="680"></canvas>
+    <div id="info">
+      <span>Today: <span class="swatch" id="todaySwatch"></span><span id="todayLabel">—</span></span>
+      <span id="stoneCount">0 stones</span>
+    </div>
+    <div id="controls">
+      <button id="addBtn">+ Add Stone</button>
+      <button id="removeBtn">- Remove Stone</button>
+    </div>
   </div>
 </div>
 <script src="script.js"></script>

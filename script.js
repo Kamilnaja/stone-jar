@@ -1,13 +1,13 @@
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
 const W = canvas.width;
 const H = canvas.height;
 
 const JAR = {
   x: 55,
-  y: 55,
+  y: 35,
   w: 370,
-  h: 535,
+  h: 510,
   wall: 5,
 };
 
@@ -17,17 +17,17 @@ const FRICTION = 0.97;
 const SUBS = 6;
 const MAX_STONES = 300;
 
-const STORAGE_KEY = 'stonejar_data';
+const STORAGE_KEY = "stonejar_data";
 
 function getTodayStr() {
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function dateToHue(dateStr) {
-  const [y, m, d] = dateStr.split('-').map(Number);
+  const [y, m, d] = dateStr.split("-").map(Number);
   const dayCount = y * 365 + m * 30 + d;
-  return ((dayCount * 137.508) % 360 + 360) % 360;
+  return (((dayCount * 137.508) % 360) + 360) % 360;
 }
 
 function dateToColor(dateStr) {
@@ -75,7 +75,8 @@ function resolveCollisions() {
   for (let iter = 0; iter < SUBS; iter++) {
     for (let i = 0; i < stones.length; i++) {
       for (let j = i + 1; j < stones.length; j++) {
-        const a = stones[i], b = stones[j];
+        const a = stones[i],
+          b = stones[j];
         const dx = b.x - a.x;
         const dy = b.y - a.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -106,8 +107,14 @@ function resolveCollisions() {
             if (rvn > 0) {
               const bounce = rvn < 0.8 ? 0 : BOUNCE;
               const imp = rvn * (1 + bounce) * 0.5;
-              if (!a.settled) { a.vx -= imp * nx; a.vy -= imp * ny; }
-              if (!b.settled) { b.vx += imp * nx; b.vy += imp * ny; }
+              if (!a.settled) {
+                a.vx -= imp * nx;
+                a.vy -= imp * ny;
+              }
+              if (!b.settled) {
+                b.vx += imp * nx;
+                b.vy += imp * ny;
+              }
             }
           }
         }
@@ -117,8 +124,14 @@ function resolveCollisions() {
     for (const s of stones) {
       if (s.settled) continue;
       const b = getBodyBounds(s.r);
-      if (s.x < b.left) { s.x = b.left; s.vx = Math.abs(s.vx) * 0.1; }
-      if (s.x > b.right) { s.x = b.right; s.vx = -Math.abs(s.vx) * 0.1; }
+      if (s.x < b.left) {
+        s.x = b.left;
+        s.vx = Math.abs(s.vx) * 0.1;
+      }
+      if (s.x > b.right) {
+        s.x = b.right;
+        s.vx = -Math.abs(s.vx) * 0.1;
+      }
       if (s.y + s.r > JAR.y + JAR.h - JAR.wall - 1) {
         s.y = JAR.y + JAR.h - JAR.wall - 1 - s.r;
         s.vy = Math.abs(s.vy) > 1 ? -s.vy * BOUNCE : 0;
@@ -182,13 +195,15 @@ function removeStone() {
 
 function saveState() {
   try {
-    const data = stones.filter(s => s.settled).map(s => ({
-      date: s.date,
-      color: s.color,
-      x: s.x,
-      y: s.y,
-      r: s.r,
-    }));
+    const data = stones
+      .filter((s) => s.settled)
+      .map((s) => ({
+        date: s.date,
+        color: s.color,
+        x: s.x,
+        y: s.y,
+        r: s.r,
+      }));
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch (e) {}
 }
@@ -211,12 +226,12 @@ function drawJar() {
   const r = 12;
 
   ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.25)';
+  ctx.shadowColor = "rgba(0,0,0,0.25)";
   ctx.shadowBlur = 30;
   ctx.shadowOffsetY = 8;
   ctx.beginPath();
   ctx.roundRect(x + 20, y + h - 8, w - 40, 16, 8);
-  ctx.fillStyle = 'rgba(0,0,0,0.15)';
+  ctx.fillStyle = "rgba(0,0,0,0.15)";
   ctx.fill();
   ctx.restore();
 
@@ -224,12 +239,12 @@ function drawJar() {
   ctx.beginPath();
   ctx.roundRect(x, y, w, h, r);
   const grad = ctx.createLinearGradient(x, y, x + w, y);
-  grad.addColorStop(0, 'rgba(180, 220, 255, 0.06)');
-  grad.addColorStop(0.5, 'rgba(200, 235, 255, 0.10)');
-  grad.addColorStop(1, 'rgba(180, 220, 255, 0.04)');
+  grad.addColorStop(0, "rgba(180, 220, 255, 0.06)");
+  grad.addColorStop(0.5, "rgba(200, 235, 255, 0.10)");
+  grad.addColorStop(1, "rgba(180, 220, 255, 0.04)");
   ctx.fillStyle = grad;
   ctx.fill();
-  ctx.strokeStyle = 'rgba(200, 230, 255, 0.2)';
+  ctx.strokeStyle = "rgba(200, 230, 255, 0.2)";
   ctx.lineWidth = wall;
   ctx.stroke();
   ctx.restore();
@@ -237,7 +252,7 @@ function drawJar() {
   ctx.save();
   ctx.beginPath();
   ctx.roundRect(x + wall + 8, y + 12, w * 0.08, h - 24, 4);
-  ctx.fillStyle = 'rgba(255,255,255,0.04)';
+  ctx.fillStyle = "rgba(255,255,255,0.04)";
   ctx.fill();
   ctx.restore();
 }
@@ -246,12 +261,19 @@ function drawStone(s) {
   const { x, y, r, color } = s;
   ctx.save();
 
-  const grad = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r);
-  grad.addColorStop(0, 'rgba(255,255,255,0.25)');
+  const grad = ctx.createRadialGradient(
+    x - r * 0.3,
+    y - r * 0.3,
+    r * 0.1,
+    x,
+    y,
+    r,
+  );
+  grad.addColorStop(0, "rgba(255,255,255,0.25)");
   grad.addColorStop(0.3, color);
-  grad.addColorStop(1, 'rgba(0,0,0,0.3)');
+  grad.addColorStop(1, "rgba(0,0,0,0.3)");
 
-  ctx.shadowColor = 'rgba(0,0,0,0.25)';
+  ctx.shadowColor = "rgba(0,0,0,0.25)";
   ctx.shadowBlur = 6;
   ctx.shadowOffsetY = 2;
 
@@ -264,7 +286,7 @@ function drawStone(s) {
   ctx.shadowOffsetY = 0;
   ctx.beginPath();
   ctx.arc(x - r * 0.25, y - r * 0.25, r * 0.35, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  ctx.fillStyle = "rgba(255,255,255,0.15)";
   ctx.fill();
 
   ctx.restore();
@@ -280,12 +302,11 @@ function draw() {
 function updateUI() {
   const today = getTodayStr();
   const colorStr = dateToColor(today);
-  document.getElementById('todaySwatch').style.background = colorStr;
-  document.getElementById('todayLabel').textContent = colorStr;
+  document.getElementById("todaySwatch").style.background = colorStr;
   const total = stones.length;
-  const settled = stones.filter(s => s.settled).length;
-  document.getElementById('stoneCount').textContent =
-    `${total} stone${total !== 1 ? 's' : ''}${total > settled ? ' (settling...)' : ''}`;
+  const settled = stones.filter((s) => s.settled).length;
+  document.getElementById("stoneCount").textContent =
+    `${total} stone${total !== 1 ? "s" : ""}${total > settled ? " (settling...)" : ""}`;
 }
 
 function loop() {
@@ -294,21 +315,26 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-document.getElementById('addBtn').addEventListener('click', () => addStone());
-document.getElementById('removeBtn').addEventListener('click', removeStone);
+document.getElementById("addBtn").addEventListener("click", () => addStone());
+document.getElementById("removeBtn").addEventListener("click", removeStone);
 
-canvas.addEventListener('click', (e) => {
+canvas.addEventListener("click", (e) => {
   const rect = canvas.getBoundingClientRect();
   const mx = e.clientX - rect.left;
   const my = e.clientY - rect.top;
-  if (mx >= JAR.x && mx <= JAR.x + JAR.w && my >= JAR.y && my <= JAR.y + JAR.h) {
+  if (
+    mx >= JAR.x &&
+    mx <= JAR.x + JAR.w &&
+    my >= JAR.y &&
+    my <= JAR.y + JAR.h
+  ) {
     addStone(mx);
   }
 });
 
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'a' || e.key === 'A') addStone();
-  if (e.key === 'r' || e.key === 'R') removeStone();
+document.addEventListener("keydown", (e) => {
+  if (e.key === "a" || e.key === "A") addStone();
+  if (e.key === "r" || e.key === "R") removeStone();
 });
 
 loadState();
