@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Stone Jar",
+  "version": "1.0",
+  "description": "A physics-based stone jar simulation — add and remove stones with realistic stacking",
+  "action": {
+    "default_popup": "index.html",
+    "default_title": "Stone Jar",
+    "default_icon": {
+      "16": "icons/icon-16.svg",
+      "48": "icons/icon-48.svg",
+      "96": "icons/icon-96.svg"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.svg",
+    "48": "icons/icon-48.svg",
+    "96": "icons/icon-96.svg"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "stone-jar@example.com",
+      "strict_min_version": "109.0"
+    }
+  }
+}
