@@ -193,28 +193,54 @@ function removeStone() {
   updateUI();
 }
 
+function getSyncStorage() {
+  if (typeof browser !== 'undefined' && browser.storage && browser.storage.sync)
+    return browser.storage.sync;
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync)
+    return chrome.storage.sync;
+  return null;
+}
+
+const syncStorage = getSyncStorage();
+
 function saveState() {
   try {
-    const data = stones
-      .filter((s) => s.settled)
-      .map((s) => ({
-        date: s.date,
-        color: s.color,
-        x: s.x,
-        y: s.y,
-        r: s.r,
-      }));
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    const settled = stones.filter(s => s.settled);
+    if (settled.length === 0) return;
+    const data = settled.map(s => [
+      s.date,
+      s.color,
+      Math.round(s.x * 10) / 10,
+      Math.round(s.y * 10) / 10,
+      Math.round(s.r * 10) / 10,
+    ]);
+    const json = JSON.stringify(data);
+    if (syncStorage) {
+      syncStorage.set({ [STORAGE_KEY]: json }).catch(() => {
+        localStorage.setItem(STORAGE_KEY, json);
+      });
+    } else {
+      localStorage.setItem(STORAGE_KEY, json);
+    }
   } catch (e) {}
 }
 
-function loadState() {
+async function loadState() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    let raw = null;
+    if (syncStorage) {
+      const result = await syncStorage.get(STORAGE_KEY);
+      raw = result[STORAGE_KEY];
+    }
+    if (!raw) {
+      raw = localStorage.getItem(STORAGE_KEY);
+    }
     if (!raw) return;
     const data = JSON.parse(raw);
     for (const d of data) {
-      const s = new Stone(d.x, d.y, d.r, d.color, d.date);
+      const s = Array.isArray(d)
+        ? new Stone(d[3], d[2], d[4], d[1], d[0])
+        : new Stone(d.x, d.y, d.r, d.color, d.date);
       s.settled = true;
       stones.push(s);
     }
@@ -337,6 +363,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "r" || e.key === "R") removeStone();
 });
 
-loadState();
-updateUI();
-loop();
+loadState().then(() => {
+  updateUI();
+  loop();
+});

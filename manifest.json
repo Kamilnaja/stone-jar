@@ -3,6 +3,7 @@
   "name": "Stone Jar",
   "version": "1.0",
   "description": "A physics-based stone jar simulation — add and remove stones with realistic stacking",
+  "permissions": ["storage"],
   "action": {
     "default_popup": "index.html",
     "default_title": "Stone Jar",
